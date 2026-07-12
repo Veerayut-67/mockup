@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>เข้าสู่ระบบ - ระบบแนะนำการสั่งซื้อสินค้า</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FFFFFF;
+    --ink: #14181A;
+    --ink-soft: #5B6560;
+    --green: #1F7A4D;
+    --green-deep: #14532E;
+    --green-soft: #E7F3EB;
+    --line: #E1E6E2;
+    --danger: #B3382C;
+    --danger-soft: #FBEAE7;
+    --radius: 12px;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:"Noto Sans Thai","Inter",sans-serif;
+    background:#fff;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    min-height:100vh;
+    display:grid;
+    grid-template-columns: 1.1fr 1fr;
+  }
+
+  /* Left: brand / visual side */
+  .side{
+    background: var(--green-deep);
+    color:#fff;
+    padding: 48px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    position:relative;
+    overflow:hidden;
+  }
+  .side::before{
+    content:"";
+    position:absolute;
+    width:420px; height:420px;
+    border-radius:50%;
+    background: var(--green);
+    opacity:0.35;
+    right:-140px; bottom:-160px;
+  }
+  .side::after{
+    content:"";
+    position:absolute;
+    width:260px; height:260px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.18);
+    right:-40px; bottom:-60px;
+  }
+  .side-top{ position:relative; z-index:1; display:flex; align-items:center; gap:10px; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:9px;
+    background: var(--green);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:15px; flex-shrink:0;
+  }
+  .side-top .name{ font-weight:600; font-size:15px; }
+  .side-top .sub{ font-size:11.5px; color:rgba(255,255,255,0.6); }
+
+  .side-mid{ position:relative; z-index:1; max-width:360px; }
+  .side-mid h2{ font-size:26px; line-height:1.4; font-weight:700; margin:0 0 12px; }
+  .side-mid p{ font-size:13.5px; color:rgba(255,255,255,0.75); line-height:1.7; margin:0; }
+
+  .side-stats{ position:relative; z-index:1; display:flex; gap:24px; }
+  .side-stats div{ font-size:12px; color:rgba(255,255,255,0.65); }
+  .side-stats .n{ font-size:20px; font-weight:700; color:#fff; display:block; }
+
+  /* Right: form side */
+  .form-side{
+    display:flex; align-items:center; justify-content:center;
+    padding: 40px;
+  }
+  .form-card{ width:100%; max-width:360px; }
+  .form-card h1{ font-size:21px; margin:0 0 6px; font-weight:700; }
+  .form-card .lead{ font-size:13px; color:var(--ink-soft); margin:0 0 28px; }
+
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--ink); }
+  .input-box{
+    display:flex; align-items:center; gap:9px;
+    border:1px solid var(--line); border-radius:9px;
+    padding:11px 13px;
+  }
+  .input-box:focus-within{ border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+  .input-box svg{ flex-shrink:0; color:var(--ink-soft); width:16px; height:16px; }
+  .input-box input{
+    border:none; outline:none; font-family:inherit; font-size:13.5px;
+    width:100%; color:var(--ink); background:transparent;
+  }
+  .toggle-eye{ cursor:pointer; color:var(--ink-soft); }
+
+  .row-between{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .remember{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .remember input{ accent-color: var(--green); width:14px; height:14px; }
+  .forgot{ font-size:12.5px; color:var(--green); font-weight:600; text-decoration:none; }
+
+  .btn-login{
+    width:100%; padding:12px; border:none; border-radius:9px;
+    background:var(--green); color:#fff; font-family:inherit;
+    font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .btn-login:hover{ background:var(--green-deep); }
+
+  .divider{ display:flex; align-items:center; gap:10px; margin:22px 0; color:var(--ink-soft); font-size:11.5px; }
+  .divider::before,.divider::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  .social-row{ display:flex; gap:10px; margin-bottom:22px; }
+  .btn-social{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:10px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; font-family:inherit; font-size:13px; font-weight:600;
+    color:var(--ink); cursor:pointer;
+  }
+  .btn-social:hover{ background:var(--green-soft); border-color:var(--green); }
+  .btn-social:disabled{ opacity:0.65; cursor:default; background:var(--green-soft); border-color:var(--green); }
+
+  .error-box{ /* login error message */
+    display:none;
+    align-items:center; gap:8px;
+    background:var(--danger-soft); color:var(--danger);
+    border-radius:8px; padding:9px 12px; font-size:12.5px; margin-bottom:16px;
+  }
+  .error-box.show{ display:flex; }
+
+  .foot-note{ text-align:center; font-size:12px; color:var(--ink-soft); margin-top:26px; }
+
+  @media (max-width: 780px){
+    .wrap{ grid-template-columns: 1fr; }
+    .side{ display:none; }
+    .form-side{ padding: 32px 22px; align-items:flex-start; }
+    .wrap{ min-height:auto; }
+    .form-side{ min-height:100vh; }
+  }
+  @media (max-width: 420px){
+    .form-card{ max-width:100%; }
+    .form-card h1{ font-size:19px; }
+    .social-row{ flex-direction:column; }
+    .row-between{ flex-wrap:wrap; gap:10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- LEFT VISUAL SIDE -->
+  <div class="side">
+    <div class="side-top">
+      <div class="brand-mark">ร้</div>
+      <div>
+        <div class="name">ร้านป้าแดง</div>
+        <div class="sub">ระบบแนะนำการสั่งซื้อสินค้า</div>
+      </div>
+    </div>
+
+    <div class="side-mid">
+      <h2>บริหารสต็อกร้านโชห่วยให้แม่นยำ ไม่ขาด ไม่ล้น</h2>
+      <p>วิเคราะห์ยอดขายย้อนหลังและแนะนำปริมาณสั่งซื้อที่เหมาะสม ให้คุณตัดสินใจได้ไวขึ้นทุกวัน</p>
+    </div>
+
+    <div class="side-stats">
+      <div><span class="n">186</span>สินค้าในระบบ</div>
+      <div><span class="n">98%</span>ความแม่นยำสต็อก</div>
+      <div><span class="n">7</span>วันเก็บข้อมูลล่าสุด</div>
+    </div>
+  </div>
+
+  <!-- RIGHT FORM SIDE -->
+  <div class="form-side">
+    <div class="form-card">
+      <h1>เข้าสู่ระบบ</h1>
+      <p class="lead">กรอกข้อมูลเพื่อเข้าใช้งานระบบร้านของคุณ</p>
+
+      <div class="error-box" id="errorBox">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg>
+        ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง
+      </div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label>ชื่อผู้ใช้</label>
+          <div class="input-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" placeholder="username" value="paedang_shop">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>รหัสผ่าน</label>
+          <div class="input-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input type="password" id="pwInput" placeholder="••••••••" value="********">
+            <svg class="toggle-eye" id="eyeToggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+        </div>
+
+        <div class="row-between">
+          <label class="remember"><input type="checkbox" checked> จดจำฉันไว้</label>
+          <a href="#" class="forgot">ลืมรหัสผ่าน?</a>
+        </div>
+
+        <button type="submit" class="btn-login">เข้าสู่ระบบ</button>
+      </form>
+
+      <div class="divider">หรือเข้าสู่ระบบด้วย</div>
+
+      <div class="social-row">
+        <button type="button" class="btn-social" id="fbLoginBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#1877F2" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.89v2.26h3.32l-.53 3.49h-2.79V24C19.61 23.09 24 18.1 24 12.07Z"/></svg>
+          <span class="social-label">Facebook</span>
+        </button>
+        <button type="button" class="btn-social" id="googleLoginBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.66-.22-2.44H12v4.62h6.47a5.54 5.54 0 0 1-2.4 3.64v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.95H1.27v3.1A12 12 0 0 0 12 24Z"/><path fill="#FBBC05" d="M5.27 14.29a7.2 7.2 0 0 1 0-4.58v-3.1H1.27a12 12 0 0 0 0 10.78l4-3.1Z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.59 1.79l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.61l4 3.1C6.22 6.88 8.87 4.77 12 4.77Z"/></svg>
+          <span class="social-label">Google</span>
+        </button>
+      </div>
+
+      <p class="foot-note">ยังไม่มีบัญชี? <a href="#" class="forgot">ติดต่อผู้ดูแลร้าน</a></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // show/hide password
+  const pw = document.getElementById('pwInput');
+  document.getElementById('eyeToggle').addEventListener('click', ()=>{
+    pw.type = pw.type === 'password' ? 'text' : 'password';
+  });
+
+  // demo flow: submitting the form goes straight to the dashboard
+  document.getElementById('loginForm').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    window.location.href = "dashboard.html";
+  });
+
+  // demo flow: social login buttons show a quick "connecting" state, then go to the dashboard
+  function handleSocialLogin(btn, providerName){
+    const label = btn.querySelector('.social-label');
+    const original = label.textContent;
+    btn.disabled = true;
+    label.textContent = "กำลังเชื่อมต่อกับ " + providerName + "...";
+    setTimeout(()=>{
+      window.location.href = "dashboard.html";
+    }, 900);
+  }
+  document.getElementById('fbLoginBtn').addEventListener('click', function(){
+    handleSocialLogin(this, "Facebook");
+  });
+  document.getElementById('googleLoginBtn').addEventListener('click', function(){
+    handleSocialLogin(this, "Google");
+  });
+</script>
+</body>
+</html>
