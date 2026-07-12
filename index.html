@@ -244,7 +244,7 @@
   // demo flow: submitting the form goes straight to the dashboard
   document.getElementById('loginForm').addEventListener('submit', (e)=>{
     e.preventDefault();
-    window.location.href = "dashboard.html";
+    window.location.href = "dashboard_1.html";
   });
 
   // demo flow: social login buttons show a quick "connecting" state, then go to the dashboard
@@ -254,7 +254,7 @@
     btn.disabled = true;
     label.textContent = "กำลังเชื่อมต่อกับ " + providerName + "...";
     setTimeout(()=>{
-      window.location.href = "dashboard.html";
+      window.location.href = "dashboard_1.html";
     }, 900);
   }
   document.getElementById('fbLoginBtn').addEventListener('click', function(){

@@ -5,6 +5,10 @@
 <title>ระบบแนะนำการสั่งซื้อสินค้า - Mockup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --bg: #FFFFFF;
@@ -98,6 +102,13 @@
     display:flex;align-items:center;justify-content:center;
     font-weight:700; font-size:12px;
   }
+  .icon-btn{
+    width:32px; height:32px; border-radius:8px; border:1px solid var(--line);
+    background:#fff; color:var(--ink-soft); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0;
+  }
+  .icon-btn:hover{ background:var(--danger-soft); border-color:var(--danger); color:var(--danger); }
+  .icon-btn svg{ width:16px; height:16px; }
 
   .page{ padding: 24px 26px 40px; }
   .page-head{ margin-bottom:18px; }
@@ -186,6 +197,49 @@
   .pill{ font-size:12.5px; padding:7px 14px; border-radius:100px; border:1px solid var(--line); cursor:pointer; background:#fff; font-family:inherit; }
   .pill.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
 
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(20,24,26,0.45);
+    display:flex; align-items:center; justify-content:center;
+    z-index:100; padding:16px;
+  }
+  .modal-overlay.hidden{ display:none; }
+  .modal-box{
+    background:#fff; border-radius:12px; width:100%; max-width:420px;
+    max-height:90vh; overflow-y:auto;
+  }
+  .modal-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 18px; border-bottom:1px solid var(--line);
+  }
+  .modal-head h3{ margin:0; font-size:15px; }
+  .modal-close{
+    border:none; background:none; font-size:20px; line-height:1;
+    color:var(--ink-soft); cursor:pointer; padding:2px 6px;
+  }
+  .modal-body{ padding:18px; }
+  .modal-foot{
+    display:flex; justify-content:flex-end; gap:8px;
+    padding:14px 18px; border-top:1px solid var(--line);
+  }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--ink); }
+  .input-box{
+    display:flex; align-items:center; gap:9px;
+    border:1px solid var(--line); border-radius:9px; padding:10px 12px;
+  }
+  .input-box:focus-within{ border-color:var(--green); box-shadow:0 0 0 3px var(--green-soft); }
+  .input-box input{ border:none; outline:none; font-family:inherit; font-size:13.5px; width:100%; background:transparent; }
+
+  /* Toast */
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--green-deep); color:#fff; font-size:13px; font-weight:600;
+    padding:11px 20px; border-radius:9px; opacity:0; pointer-events:none;
+    transition:opacity 0.25s ease, transform 0.25s ease; z-index:200;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
   @media (max-width: 860px){
     .grid-4{ grid-template-columns: repeat(2,1fr); }
     .row-2{ grid-template-columns: 1fr; }
@@ -262,6 +316,9 @@
       <div class="user-chip">
         <span class="meta">อังคาร 14 ก.ค. 2569</span>
         <div class="avatar">จ</div>
+        <button class="icon-btn" id="logoutBtn" title="ออกจากระบบ">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        </button>
       </div>
     </div>
 
@@ -356,30 +413,32 @@
         <div class="toolbar">
           <div class="search">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
-            <input type="text" placeholder="ค้นหาสินค้า เช่น ไข่ไก่ นมถั่วเหลือง...">
+            <input type="text" id="productSearchInput" placeholder="ค้นหาสินค้า เช่น ไข่ไก่ นมถั่วเหลือง...">
           </div>
-          <button class="btn primary">+ เพิ่มสินค้าใหม่</button>
+          <button class="btn primary" id="addProductBtn">+ เพิ่มสินค้าใหม่</button>
         </div>
 
-        <div class="pill-row">
-          <button class="pill active">ทั้งหมด</button>
-          <button class="pill">เครื่องดื่ม</button>
-          <button class="pill">อาหารแห้ง</button>
-          <button class="pill">ของใช้</button>
-          <button class="pill">เบเกอรี่</button>
+        <div class="pill-row" id="productCategoryPills">
+          <button class="pill active" data-category="ทั้งหมด">ทั้งหมด</button>
+          <button class="pill" data-category="เครื่องดื่ม">เครื่องดื่ม</button>
+          <button class="pill" data-category="อาหารแห้ง">อาหารแห้ง</button>
+          <button class="pill" data-category="ของใช้">ของใช้</button>
+          <button class="pill" data-category="เบเกอรี่">เบเกอรี่</button>
         </div>
+
+        <p id="productEmptyState" style="display:none; font-size:13px; color:var(--ink-soft); padding:10px 2px;">ไม่พบสินค้าที่ค้นหา</p>
 
         <div class="panel">
           <div class="panel-body" style="padding-top:0;">
             <table>
               <thead><tr><th>สินค้า</th><th>หมวดหมู่</th><th>ราคาขาย</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
-              <tbody>
-                <tr><td>น้ำดื่มขวดเล็ก</td><td>เครื่องดื่ม</td><td>7 ฿</td><td>58</td><td><span class="tag ok dot">ปกติ</span></td><td><button class="link-btn">แก้ไข</button></td></tr>
-                <tr><td>นมถั่วเหลือง 250 มล.</td><td>เครื่องดื่ม</td><td>12 ฿</td><td>4</td><td><span class="tag low dot">ใกล้หมด</span></td><td><button class="link-btn">แก้ไข</button></td></tr>
-                <tr><td>ไข่ไก่ เบอร์ 2</td><td>อาหารสด</td><td>4 ฿/ฟอง</td><td>6</td><td><span class="tag low dot">ใกล้หมด</span></td><td><button class="link-btn">แก้ไข</button></td></tr>
-                <tr><td>มาม่าต้มยำกุ้ง</td><td>อาหารแห้ง</td><td>7 ฿</td><td>9</td><td><span class="tag low dot">ใกล้หมด</span></td><td><button class="link-btn">แก้ไข</button></td></tr>
-                <tr><td>ผงซักฟอกซอง</td><td>ของใช้</td><td>10 ฿</td><td>34</td><td><span class="tag ok dot">ปกติ</span></td><td><button class="link-btn">แก้ไข</button></td></tr>
-                <tr><td>ขนมปังแผ่น</td><td>เบเกอรี่</td><td>28 ฿</td><td>20</td><td><span class="tag ok dot">ปกติ</span></td><td><button class="link-btn">แก้ไข</button></td></tr>
+              <tbody id="productTableBody">
+                <tr><td>น้ำดื่มขวดเล็ก</td><td>เครื่องดื่ม</td><td>7 ฿</td><td>58</td><td><span class="tag ok dot">ปกติ</span></td><td><button class="link-btn edit-product-btn">แก้ไข</button></td></tr>
+                <tr><td>นมถั่วเหลือง 250 มล.</td><td>เครื่องดื่ม</td><td>12 ฿</td><td>4</td><td><span class="tag low dot">ใกล้หมด</span></td><td><button class="link-btn edit-product-btn">แก้ไข</button></td></tr>
+                <tr><td>ไข่ไก่ เบอร์ 2</td><td>อาหารสด</td><td>4 ฿/ฟอง</td><td>6</td><td><span class="tag low dot">ใกล้หมด</span></td><td><button class="link-btn edit-product-btn">แก้ไข</button></td></tr>
+                <tr><td>มาม่าต้มยำกุ้ง</td><td>อาหารแห้ง</td><td>7 ฿</td><td>9</td><td><span class="tag low dot">ใกล้หมด</span></td><td><button class="link-btn edit-product-btn">แก้ไข</button></td></tr>
+                <tr><td>ผงซักฟอกซอง</td><td>ของใช้</td><td>10 ฿</td><td>34</td><td><span class="tag ok dot">ปกติ</span></td><td><button class="link-btn edit-product-btn">แก้ไข</button></td></tr>
+                <tr><td>ขนมปังแผ่น</td><td>เบเกอรี่</td><td>28 ฿</td><td>20</td><td><span class="tag ok dot">ปกติ</span></td><td><button class="link-btn edit-product-btn">แก้ไข</button></td></tr>
               </tbody>
             </table>
           </div>
@@ -396,24 +455,33 @@
           <div class="panel">
             <div class="panel-head"><h3>บันทึกการขายใหม่</h3></div>
             <div class="panel-body" style="display:flex; flex-direction:column; gap:12px;">
-              <div class="search" style="max-width:none;">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
-                <input type="text" placeholder="เลือกสินค้า...">
+              <div class="field">
+                <label style="display:block; font-size:12px; color:var(--ink-soft); margin-bottom:6px;">สินค้า</label>
+                <select id="saleProductSelect" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:9px 10px; font-family:inherit; font-size:13px; color:var(--ink);">
+                  <option value="">-- เลือกสินค้า --</option>
+                </select>
               </div>
               <div style="display:flex; gap:10px;">
-                <div class="search" style="max-width:none;"><input type="text" placeholder="จำนวน"></div>
-                <div class="search" style="max-width:none;"><input type="text" placeholder="ราคาต่อหน่วย"></div>
+                <div style="flex:1;">
+                  <label style="display:block; font-size:12px; color:var(--ink-soft); margin-bottom:6px;">จำนวน</label>
+                  <div class="search" style="max-width:none;"><input type="number" id="saleQtyInput" min="1" value="1"></div>
+                </div>
+                <div style="flex:1;">
+                  <label style="display:block; font-size:12px; color:var(--ink-soft); margin-bottom:6px;">ราคาต่อหน่วย</label>
+                  <div class="search" style="max-width:none;"><input type="number" id="salePriceInput" placeholder="0"></div>
+                </div>
               </div>
-              <button class="btn primary" style="width:100%;">บันทึกการขาย</button>
+              <p id="saleFormMsg" style="display:none; font-size:12px; color:var(--danger); margin:0;"></p>
+              <button class="btn primary" style="width:100%;" id="recordSaleBtn">บันทึกการขาย</button>
             </div>
           </div>
 
           <div class="panel">
             <div class="panel-head"><h3>สรุปวันนี้</h3></div>
             <div class="panel-body">
-              <div class="rec-row"><div class="rec-name">จำนวนบิล</div><div class="rec-qty"><span class="n">34</span></div></div>
-              <div class="rec-row"><div class="rec-name">ยอดขายรวม</div><div class="rec-qty"><span class="n">2,480 ฿</span></div></div>
-              <div class="rec-row"><div class="rec-name">กำไรโดยประมาณ</div><div class="rec-qty"><span class="n">612 ฿</span></div></div>
+              <div class="rec-row"><div class="rec-name">จำนวนบิล</div><div class="rec-qty"><span class="n" id="statBillCount">34</span></div></div>
+              <div class="rec-row"><div class="rec-name">ยอดขายรวม</div><div class="rec-qty"><span class="n" id="statTotalSales">2,480 ฿</span></div></div>
+              <div class="rec-row"><div class="rec-name">กำไรโดยประมาณ</div><div class="rec-qty"><span class="n" id="statProfitEst">612 ฿</span></div></div>
             </div>
           </div>
         </div>
@@ -423,7 +491,7 @@
           <div class="panel-body" style="padding-top:0;">
             <table>
               <thead><tr><th>เวลา</th><th>สินค้า</th><th>จำนวน</th><th>ยอดรวม</th></tr></thead>
-              <tbody>
+              <tbody id="salesHistoryBody">
                 <tr><td>14:32</td><td>น้ำดื่มขวดเล็ก</td><td>3</td><td>21 ฿</td></tr>
                 <tr><td>14:10</td><td>มาม่าต้มยำกุ้ง</td><td>5</td><td>35 ฿</td></tr>
                 <tr><td>13:45</td><td>ไข่ไก่ เบอร์ 2</td><td>10</td><td>40 ฿</td></tr>
@@ -443,29 +511,30 @@
         <div class="panel">
           <div class="panel-head">
             <h3>รายการที่แนะนำให้สั่งซื้อ</h3>
-            <button class="btn primary">สั่งซื้อที่เลือกทั้งหมด</button>
+            <button class="btn primary" id="orderSelectedBtn">สั่งซื้อที่เลือกทั้งหมด</button>
           </div>
           <div class="panel-body" style="padding-top:0;">
-            <table>
-              <thead><tr><th></th><th>สินค้า</th><th>คงเหลือ</th><th>ยอดขายเฉลี่ย/วัน</th><th>จุดสั่งซื้อ (ROP)</th><th>แนะนำสั่ง</th></tr></thead>
-              <tbody>
-                <tr>
-                  <td><input type="checkbox" checked></td>
+            <p id="recoEmptyState" style="display:none; font-size:13px; color:var(--ink-soft); padding:10px 2px;">ไม่มีรายการที่ต้องสั่งซื้อในขณะนี้</p>
+            <table id="recoTable">
+              <thead><tr><th><input type="checkbox" id="recoCheckAll" checked></th><th>สินค้า</th><th>คงเหลือ</th><th>ยอดขายเฉลี่ย/วัน</th><th>จุดสั่งซื้อ (ROP)</th><th>แนะนำสั่ง</th></tr></thead>
+              <tbody id="recoTableBody">
+                <tr class="reco-row" data-product="นมถั่วเหลือง 250 มล." data-qty="36" data-unit="ชิ้น">
+                  <td><input type="checkbox" class="reco-check" checked></td>
                   <td>นมถั่วเหลือง 250 มล.</td><td>4</td><td>6.2</td><td>18</td>
                   <td class="rec-qty"><span class="n" style="font-size:14px;">36</span> <span class="u">ชิ้น</span></td>
                 </tr>
-                <tr>
-                  <td><input type="checkbox" checked></td>
+                <tr class="reco-row" data-product="ไข่ไก่ เบอร์ 2" data-qty="30" data-unit="แผง">
+                  <td><input type="checkbox" class="reco-check" checked></td>
                   <td>ไข่ไก่ เบอร์ 2</td><td>6</td><td>9.0</td><td>27</td>
                   <td class="rec-qty"><span class="n" style="font-size:14px;">30</span> <span class="u">แผง</span></td>
                 </tr>
-                <tr>
-                  <td><input type="checkbox" checked></td>
+                <tr class="reco-row" data-product="น้ำปลาตราปลาหมึก" data-qty="12" data-unit="ขวด">
+                  <td><input type="checkbox" class="reco-check" checked></td>
                   <td>น้ำปลาตราปลาหมึก</td><td>2</td><td>1.4</td><td>4</td>
                   <td class="rec-qty"><span class="n" style="font-size:14px;">12</span> <span class="u">ขวด</span></td>
                 </tr>
-                <tr>
-                  <td><input type="checkbox"></td>
+                <tr class="reco-row" data-product="มาม่าต้มยำกุ้ง" data-qty="48" data-unit="ซอง">
+                  <td><input type="checkbox" class="reco-check"></td>
                   <td>มาม่าต้มยำกุ้ง</td><td>9</td><td>12.5</td><td>25</td>
                   <td class="rec-qty"><span class="n" style="font-size:14px;">48</span> <span class="u">ซอง</span></td>
                 </tr>
@@ -508,19 +577,17 @@
           <div class="panel-head">
             <h3>แนวโน้มยอดขาย</h3>
             <div style="display:flex; gap:8px;">
-              <button class="btn ghost">Export Excel</button>
-              <button class="btn ghost">Export PDF</button>
+              <button class="btn ghost" id="exportExcelBtn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Export Excel
+              </button>
+              <button class="btn ghost" id="exportPdfBtn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Export PDF
+              </button>
             </div>
           </div>
           <div class="panel-body">
-            <div class="bars" style="height:180px;">
-              <div class="bar-col"><div class="bar" style="height:45%"></div><div class="bar-label">จ.</div></div>
-              <div class="bar-col"><div class="bar" style="height:60%"></div><div class="bar-label">อ.</div></div>
-              <div class="bar-col"><div class="bar" style="height:35%"></div><div class="bar-label">พ.</div></div>
-              <div class="bar-col"><div class="bar" style="height:80%"></div><div class="bar-label">พฤ.</div></div>
-              <div class="bar-col"><div class="bar" style="height:55%"></div><div class="bar-label">ศ.</div></div>
-              <div class="bar-col"><div class="bar" style="height:92%"></div><div class="bar-label">ส.</div></div>
-              <div class="bar-col"><div class="bar active" style="height:70%"></div><div class="bar-label">อา.</div></div>
+            <div style="position:relative; height:260px;">
+              <canvas id="salesTrendChart"></canvas>
             </div>
           </div>
         </div>
@@ -529,7 +596,7 @@
           <div class="panel">
             <div class="panel-head"><h3>สินค้าขายดี</h3></div>
             <div class="panel-body" style="padding-top:0;">
-              <table>
+              <table id="bestSellerTable">
                 <thead><tr><th>สินค้า</th><th>ขายแล้ว</th></tr></thead>
                 <tbody>
                   <tr><td>น้ำดื่มขวดเล็ก</td><td>142</td></tr>
@@ -542,7 +609,7 @@
           <div class="panel">
             <div class="panel-head"><h3>สินค้าขายช้า</h3></div>
             <div class="panel-body" style="padding-top:0;">
-              <table>
+              <table id="slowSellerTable">
                 <thead><tr><th>สินค้า</th><th>ขายแล้ว</th></tr></thead>
                 <tbody>
                   <tr><td>ยาสีฟันสูตรสมุนไพร</td><td>2</td></tr>
@@ -557,6 +624,92 @@
     </section>
 
   </main>
+
+  <!-- ADD PRODUCT MODAL -->
+  <div class="modal-overlay hidden" id="addProductModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>เพิ่มสินค้าใหม่</h3>
+        <button class="modal-close" id="closeAddProductModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>ชื่อสินค้า</label>
+          <div class="input-box"><input type="text" id="newProductName" placeholder="เช่น น้ำอัดลมกระป๋อง"></div>
+        </div>
+        <div class="field">
+          <label>หมวดหมู่</label>
+          <select id="newProductCategory" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:11px 13px; font-family:inherit; font-size:13.5px;">
+            <option>เครื่องดื่ม</option>
+            <option>อาหารแห้ง</option>
+            <option>อาหารสด</option>
+            <option>ของใช้</option>
+            <option>เบเกอรี่</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <div class="field" style="flex:1;">
+            <label>ราคาขาย (฿)</label>
+            <div class="input-box"><input type="number" id="newProductPrice" placeholder="0"></div>
+          </div>
+          <div class="field" style="flex:1;">
+            <label>จำนวนคงเหลือ</label>
+            <div class="input-box"><input type="number" id="newProductStock" placeholder="0"></div>
+          </div>
+        </div>
+        <p id="addProductMsg" style="display:none; font-size:12px; color:var(--danger); margin:0 0 10px;"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" id="cancelAddProduct">ยกเลิก</button>
+        <button class="btn primary" id="confirmAddProduct">บันทึกสินค้า</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT PRODUCT MODAL -->
+  <div class="modal-overlay hidden" id="editProductModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>แก้ไขสินค้า</h3>
+        <button class="modal-close" id="closeEditProductModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>ชื่อสินค้า</label>
+          <div class="input-box"><input type="text" id="editProductName" placeholder="เช่น น้ำอัดลมกระป๋อง"></div>
+        </div>
+        <div class="field">
+          <label>หมวดหมู่</label>
+          <select id="editProductCategory" style="width:100%; border:1px solid var(--line); border-radius:9px; padding:11px 13px; font-family:inherit; font-size:13.5px;">
+            <option>เครื่องดื่ม</option>
+            <option>อาหารแห้ง</option>
+            <option>อาหารสด</option>
+            <option>ของใช้</option>
+            <option>เบเกอรี่</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <div class="field" style="flex:1;">
+            <label>ราคาขาย (฿)</label>
+            <div class="input-box"><input type="number" id="editProductPrice" placeholder="0"></div>
+          </div>
+          <div class="field" style="flex:1;">
+            <label>จำนวนคงเหลือ</label>
+            <div class="input-box"><input type="number" id="editProductStock" placeholder="0"></div>
+          </div>
+        </div>
+        <p id="editProductMsg" style="display:none; font-size:12px; color:var(--danger); margin:0 0 10px;"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" id="deleteProductBtn" style="color:var(--danger); margin-right:auto;">ลบสินค้า</button>
+        <button class="btn ghost" id="cancelEditProduct">ยกเลิก</button>
+        <button class="btn primary" id="confirmEditProduct">บันทึกการแก้ไข</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
 </div>
 
 <script>
@@ -584,6 +737,380 @@
         p.classList.add('active');
       });
     });
+  });
+
+  /* ---------- Toast ---------- */
+  function showToast(msg){
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toast.classList.remove('show'), 2200);
+  }
+
+  /* ---------- Product search + category filter ---------- */
+  const productSearchInput = document.getElementById('productSearchInput');
+  const productTableBody = document.getElementById('productTableBody');
+  const productEmptyState = document.getElementById('productEmptyState');
+  const productCategoryPills = document.getElementById('productCategoryPills');
+
+  function applyProductFilters(){
+    const q = productSearchInput.value.trim().toLowerCase();
+    const activeCategory = productCategoryPills.querySelector('.pill.active').dataset.category;
+    let visibleCount = 0;
+    Array.from(productTableBody.rows).forEach(row=>{
+      const name = row.cells[0].textContent.toLowerCase();
+      const category = row.cells[1].textContent;
+      const matchesSearch = !q || name.includes(q);
+      const matchesCategory = activeCategory === 'ทั้งหมด' || category === activeCategory;
+      const visible = matchesSearch && matchesCategory;
+      row.style.display = visible ? '' : 'none';
+      if (visible) visibleCount++;
+    });
+    productEmptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+  }
+  productSearchInput.addEventListener('input', applyProductFilters);
+  productCategoryPills.querySelectorAll('.pill').forEach(p=>{
+    p.addEventListener('click', applyProductFilters);
+  });
+
+  /* ---------- Add product modal ---------- */
+  const addProductModal = document.getElementById('addProductModal');
+  const addProductMsg = document.getElementById('addProductMsg');
+
+  function openAddProductModal(){
+    addProductModal.classList.remove('hidden');
+    addProductMsg.style.display = 'none';
+    document.getElementById('newProductName').value = '';
+    document.getElementById('newProductPrice').value = '';
+    document.getElementById('newProductStock').value = '';
+    document.getElementById('newProductCategory').selectedIndex = 0;
+  }
+  function closeAddProductModal(){ addProductModal.classList.add('hidden'); }
+
+  document.getElementById('addProductBtn').addEventListener('click', openAddProductModal);
+  document.getElementById('closeAddProductModal').addEventListener('click', closeAddProductModal);
+  document.getElementById('cancelAddProduct').addEventListener('click', closeAddProductModal);
+  addProductModal.addEventListener('click', (e)=>{ if (e.target === addProductModal) closeAddProductModal(); });
+
+  document.getElementById('confirmAddProduct').addEventListener('click', ()=>{
+    const name = document.getElementById('newProductName').value.trim();
+    const category = document.getElementById('newProductCategory').value;
+    const price = parseFloat(document.getElementById('newProductPrice').value);
+    const stock = parseInt(document.getElementById('newProductStock').value, 10);
+
+    if (!name || isNaN(price) || price <= 0 || isNaN(stock) || stock < 0){
+      addProductMsg.textContent = 'กรอกชื่อสินค้า ราคา และจำนวนคงเหลือให้ครบและถูกต้อง';
+      addProductMsg.style.display = 'block';
+      return;
+    }
+
+    if (!confirm('ยืนยันเพิ่มสินค้า "' + name + '" ใช่หรือไม่?')) return;
+
+    const statusTag = stock <= 10
+      ? '<span class="tag low dot">ใกล้หมด</span>'
+      : '<span class="tag ok dot">ปกติ</span>';
+
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${name}</td><td>${category}</td><td>${price} ฿</td><td>${stock}</td><td>${statusTag}</td><td><button class="link-btn edit-product-btn">แก้ไข</button></td>`;
+    productTableBody.appendChild(row);
+
+    applyProductFilters();
+    refreshSaleProductOptions();
+    closeAddProductModal();
+    showToast('เพิ่มสินค้า "' + name + '" เรียบร้อยแล้ว');
+  });
+
+  /* ---------- Sales: product dropdown synced with product table ---------- */
+  const saleProductSelect = document.getElementById('saleProductSelect');
+  const salePriceInput = document.getElementById('salePriceInput');
+  const saleQtyInput = document.getElementById('saleQtyInput');
+  const saleFormMsg = document.getElementById('saleFormMsg');
+  const statBillCount = document.getElementById('statBillCount');
+  const statTotalSales = document.getElementById('statTotalSales');
+  const statProfitEst = document.getElementById('statProfitEst');
+  const salesHistoryBody = document.getElementById('salesHistoryBody');
+
+  let billCount = 34;
+  let totalSales = 2480;
+  let profitEst = 612;
+
+  function refreshSaleProductOptions(){
+    const current = saleProductSelect.value;
+    saleProductSelect.innerHTML = '<option value="">-- เลือกสินค้า --</option>';
+    Array.from(productTableBody.rows).forEach(row=>{
+      const name = row.cells[0].textContent;
+      const priceMatch = row.cells[2].textContent.match(/[\d.]+/);
+      const price = priceMatch ? priceMatch[0] : '0';
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.dataset.price = price;
+      opt.textContent = name;
+      saleProductSelect.appendChild(opt);
+    });
+    if (Array.from(saleProductSelect.options).some(o=>o.value === current)) saleProductSelect.value = current;
+  }
+  refreshSaleProductOptions();
+
+  saleProductSelect.addEventListener('change', ()=>{
+    const opt = saleProductSelect.selectedOptions[0];
+    salePriceInput.value = opt && opt.dataset.price ? opt.dataset.price : '';
+  });
+
+  document.getElementById('recordSaleBtn').addEventListener('click', ()=>{
+    const productName = saleProductSelect.value;
+    const qty = parseInt(saleQtyInput.value, 10);
+    const price = parseFloat(salePriceInput.value);
+
+    if (!productName || isNaN(qty) || qty <= 0 || isNaN(price) || price <= 0){
+      saleFormMsg.textContent = 'เลือกสินค้า และกรอกจำนวน/ราคาให้ถูกต้องก่อนบันทึก';
+      saleFormMsg.style.display = 'block';
+      return;
+    }
+    saleFormMsg.style.display = 'none';
+
+    if (!confirm('ยืนยันบันทึกการขาย "' + productName + '" จำนวน ' + qty + ' รายการใช่หรือไม่?')) return;
+
+    const total = qty * price;
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${timeStr}</td><td>${productName}</td><td>${qty}</td><td>${total.toLocaleString('th-TH')} ฿</td>`;
+    salesHistoryBody.insertBefore(row, salesHistoryBody.firstChild);
+
+    billCount += 1;
+    totalSales += total;
+    profitEst += total * 0.25;
+    statBillCount.textContent = billCount;
+    statTotalSales.textContent = totalSales.toLocaleString('th-TH') + ' ฿';
+    statProfitEst.textContent = Math.round(profitEst).toLocaleString('th-TH') + ' ฿';
+
+    Array.from(productTableBody.rows).forEach(prow=>{
+      if (prow.cells[0].textContent === productName){
+        const stockCell = prow.cells[3];
+        const newStock = Math.max(0, parseInt(stockCell.textContent, 10) - qty);
+        stockCell.textContent = newStock;
+        prow.cells[4].innerHTML = newStock <= 10
+          ? '<span class="tag low dot">ใกล้หมด</span>'
+          : '<span class="tag ok dot">ปกติ</span>';
+      }
+    });
+
+    saleQtyInput.value = 1;
+    showToast('บันทึกการขาย ' + productName + ' จำนวน ' + qty + ' แล้ว');
+  });
+
+  /* ---------- Logout ---------- */
+  document.getElementById('logoutBtn').addEventListener('click', ()=>{
+    if (confirm('ต้องการออกจากระบบใช่หรือไม่?')){
+      window.location.href = 'index_1.html';
+    }
+  });
+
+  /* ---------- Edit product ---------- */
+  const editProductModal = document.getElementById('editProductModal');
+  const editProductMsg = document.getElementById('editProductMsg');
+  let editingRow = null;
+
+  function openEditProductModal(row){
+    editingRow = row;
+    editProductMsg.style.display = 'none';
+    const name = row.cells[0].textContent;
+    const category = row.cells[1].textContent;
+    const priceMatch = row.cells[2].textContent.match(/[\d.]+/);
+    const price = priceMatch ? priceMatch[0] : '';
+    const stock = row.cells[3].textContent;
+
+    document.getElementById('editProductName').value = name;
+    document.getElementById('editProductCategory').value = category;
+    document.getElementById('editProductPrice').value = price;
+    document.getElementById('editProductStock').value = stock;
+
+    editProductModal.classList.remove('hidden');
+  }
+  function closeEditProductModal(){ editProductModal.classList.add('hidden'); editingRow = null; }
+
+  productTableBody.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.edit-product-btn');
+    if (!btn) return;
+    openEditProductModal(btn.closest('tr'));
+  });
+
+  document.getElementById('closeEditProductModal').addEventListener('click', closeEditProductModal);
+  document.getElementById('cancelEditProduct').addEventListener('click', closeEditProductModal);
+  editProductModal.addEventListener('click', (e)=>{ if (e.target === editProductModal) closeEditProductModal(); });
+
+  document.getElementById('confirmEditProduct').addEventListener('click', ()=>{
+    if (!editingRow) return;
+    const name = document.getElementById('editProductName').value.trim();
+    const category = document.getElementById('editProductCategory').value;
+    const price = parseFloat(document.getElementById('editProductPrice').value);
+    const stock = parseInt(document.getElementById('editProductStock').value, 10);
+
+    if (!name || isNaN(price) || price <= 0 || isNaN(stock) || stock < 0){
+      editProductMsg.textContent = 'กรอกชื่อสินค้า ราคา และจำนวนคงเหลือให้ครบและถูกต้อง';
+      editProductMsg.style.display = 'block';
+      return;
+    }
+
+    if (!confirm('ยืนยันบันทึกการแก้ไขสินค้า "' + name + '" ใช่หรือไม่?')) return;
+
+    const statusTag = stock <= 10
+      ? '<span class="tag low dot">ใกล้หมด</span>'
+      : '<span class="tag ok dot">ปกติ</span>';
+
+    editingRow.cells[0].textContent = name;
+    editingRow.cells[1].textContent = category;
+    editingRow.cells[2].textContent = price + ' ฿';
+    editingRow.cells[3].textContent = stock;
+    editingRow.cells[4].innerHTML = statusTag;
+
+    applyProductFilters();
+    refreshSaleProductOptions();
+    closeEditProductModal();
+    showToast('บันทึกการแก้ไข "' + name + '" เรียบร้อยแล้ว');
+  });
+
+  document.getElementById('deleteProductBtn').addEventListener('click', ()=>{
+    if (!editingRow) return;
+    const name = editingRow.cells[0].textContent;
+    if (confirm('ต้องการลบสินค้า "' + name + '" ใช่หรือไม่?')){
+      editingRow.remove();
+      applyProductFilters();
+      refreshSaleProductOptions();
+      closeEditProductModal();
+      showToast('ลบสินค้า "' + name + '" แล้ว');
+    }
+  });
+
+  /* ---------- Recommendation: order selected items ---------- */
+  const recoTableBody = document.getElementById('recoTableBody');
+  const recoEmptyState = document.getElementById('recoEmptyState');
+  const recoCheckAll = document.getElementById('recoCheckAll');
+
+  recoCheckAll.addEventListener('change', ()=>{
+    recoTableBody.querySelectorAll('.reco-check').forEach(cb => cb.checked = recoCheckAll.checked);
+  });
+
+  function checkRecoEmpty(){
+    recoEmptyState.style.display = recoTableBody.rows.length === 0 ? 'block' : 'none';
+    document.getElementById('recoTable').style.display = recoTableBody.rows.length === 0 ? 'none' : 'table';
+  }
+
+  document.getElementById('orderSelectedBtn').addEventListener('click', ()=>{
+    const checkedRows = Array.from(recoTableBody.querySelectorAll('.reco-row'))
+      .filter(row => row.querySelector('.reco-check').checked);
+
+    if (checkedRows.length === 0){
+      showToast('กรุณาเลือกสินค้าที่ต้องการสั่งซื้ออย่างน้อย 1 รายการ');
+      return;
+    }
+
+    const summary = checkedRows.map(r => `${r.dataset.product} (${r.dataset.qty} ${r.dataset.unit})`).join(', ');
+    if (!confirm('ยืนยันสั่งซื้อ ' + checkedRows.length + ' รายการนี้ใช่หรือไม่?\n' + summary)) return;
+
+    checkedRows.forEach(r => r.remove());
+    checkRecoEmpty();
+    showToast('สั่งซื้อ ' + checkedRows.length + ' รายการเรียบร้อยแล้ว: ' + summary);
+  });
+
+  /* ---------- Reports: sales trend chart ---------- */
+  const salesTrendLabels = ['จ.','อ.','พ.','พฤ.','ศ.','ส.','อา.'];
+  const salesTrendData = [980, 1310, 760, 1740, 1200, 2010, 1520];
+
+  if (typeof Chart === 'undefined'){
+    document.getElementById('salesTrendChart').closest('.panel-body').innerHTML =
+      '<p style="font-size:12.5px; color:var(--danger);">โหลดไลบรารีกราฟ (Chart.js) ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้านี้</p>';
+  } else {
+    new Chart(document.getElementById('salesTrendChart'), {
+      type: 'bar',
+      data: {
+        labels: salesTrendLabels,
+        datasets: [{
+          label: 'ยอดขาย (฿)',
+          data: salesTrendData,
+          backgroundColor: '#E7F3EB',
+          hoverBackgroundColor: '#1F7A4D',
+          borderRadius: 4,
+          maxBarThickness: 40
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString('th-TH') + ' ฿' } }
+        }
+      }
+    });
+  }
+
+  /* ---------- Reports: Export Excel ---------- */
+  document.getElementById('exportExcelBtn').addEventListener('click', ()=>{
+    if (typeof XLSX === 'undefined'){
+      alert('โหลดไลบรารี Excel ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+      return;
+    }
+    if (!confirm('ยืนยันดาวน์โหลดรายงานเป็นไฟล์ Excel ใช่หรือไม่?')) return;
+
+    const wb = XLSX.utils.book_new();
+
+    const trendData = [['วัน','ยอดขาย (บาท)']];
+    salesTrendLabels.forEach((label, i)=> trendData.push([label, salesTrendData[i]]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(trendData), 'แนวโน้มยอดขาย');
+
+    const bestRows = [['สินค้า','ขายแล้ว']];
+    document.querySelectorAll('#bestSellerTable tbody tr').forEach(row=>{
+      bestRows.push([row.cells[0].textContent, row.cells[1].textContent]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(bestRows), 'สินค้าขายดี');
+
+    const slowRows = [['สินค้า','ขายแล้ว']];
+    document.querySelectorAll('#slowSellerTable tbody tr').forEach(row=>{
+      slowRows.push([row.cells[0].textContent, row.cells[1].textContent]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(slowRows), 'สินค้าขายช้า');
+
+    XLSX.writeFile(wb, 'รายงานยอดขาย.xlsx');
+    showToast('กำลังดาวน์โหลดไฟล์ Excel...');
+  });
+
+  /* ---------- Reports: Export PDF ---------- */
+  document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
+    if (typeof window.jspdf === 'undefined'){
+      alert('โหลดไลบรารี PDF ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+      return;
+    }
+    if (!confirm('ยืนยันดาวน์โหลดรายงานเป็นไฟล์ PDF ใช่หรือไม่?')) return;
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text('Sales Report - ' + new Date().toLocaleDateString('en-GB'), 14, 18);
+
+    doc.setFontSize(11);
+    doc.text('Sales trend (last 7 days)', 14, 30);
+    doc.autoTable({
+      startY: 34,
+      head: [['Day', 'Sales (THB)']],
+      body: salesTrendLabels.map((label,i)=>[label, salesTrendData[i].toLocaleString('en-US')])
+    });
+
+    let nextY = doc.lastAutoTable.finalY + 12;
+    doc.text('Best sellers', 14, nextY);
+    const bestBody = Array.from(document.querySelectorAll('#bestSellerTable tbody tr')).map(row=>[row.cells[0].textContent, row.cells[1].textContent]);
+    doc.autoTable({ startY: nextY + 4, head: [['Product','Sold']], body: bestBody });
+
+    nextY = doc.lastAutoTable.finalY + 12;
+    doc.text('Slow sellers', 14, nextY);
+    const slowBody = Array.from(document.querySelectorAll('#slowSellerTable tbody tr')).map(row=>[row.cells[0].textContent, row.cells[1].textContent]);
+    doc.autoTable({ startY: nextY + 4, head: [['Product','Sold']], body: slowBody });
+
+    doc.save('sales-report.pdf');
+    showToast('กำลังดาวน์โหลดไฟล์ PDF...');
   });
 </script>
 </body>
